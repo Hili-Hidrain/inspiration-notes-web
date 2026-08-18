@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵感卡片墙 · 四季光屏</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=ZCOOL+XiaoWei&family=Ma+Shan+Zheng&family=Long+Cang&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 四季湖水背景 -->
+  <div id="seasonBg" class="season-bg season-spring"></div>
+
+  <!-- 水面涟漪 Canvas -->
+  <canvas id="rippleCanvas" class="ripple-canvas"></canvas>
+
+  <!-- 雨滴/雪花 Canvas -->
+  <canvas id="rainCanvas" class="rain-canvas"></canvas>
+
+  <!-- SVG 装饰层（花/叶/枝/梅） -->
+  <div id="decorLayer" class="decor-layer"></div>
+
+  <!-- 顶部导航栏（3D立体融入） -->
+  <header class="navbar">
+    <div class="brand">
+      <span class="brand-icon">✦</span>
+      <span class="brand-text">灵感卡片墙</span>
+    </div>
+
+    <div class="search-area">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="searchInput" type="text" placeholder="搜索标题、正文、来源、标签..." autocomplete="off">
+        <button id="searchClearBtn" class="search-clear" title="清空" style="display:none;">×</button>
+      </div>
+      <div id="searchCount" class="search-count"></div>
+    </div>
+
+    <div class="theme-area">
+      <div class="season-picker" id="seasonPicker">
+        <button class="season-btn active" data-season="spring" title="春 · 桃李烟雨">🌸</button>
+        <button class="season-btn" data-season="summer" title="夏 · 竹林深潭">🎋</button>
+        <button class="season-btn" data-season="autumn" title="秋 · 金秋落叶">🍁</button>
+        <button class="season-btn" data-season="winter" title="冬 · 白雪梅花">❄️</button>
+      </div>
+      <div class="page-color-picker" id="pageColorPicker" title="自定义页面底色">
+        <input id="pageColor" type="color" value="#e8d5e0">
+        <button id="pageColorReset" class="page-color-reset" title="恢复季节主题">↺</button>
+      </div>
+      <div class="weather-toggle" id="weatherToggle">
+        <button class="weather-btn active" data-weather="sunny" title="晴天">☀️</button>
+        <button class="weather-btn" data-weather="rainy" title="雨天">🌧️</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="importBtn" class="btn btn-ghost" title="从 JSON 文件导入">📥 导入</button>
+      <button id="exportBtn" class="btn btn-ghost" title="导出为 JSON 文件">📤 导出</button>
+      <button id="createBtn" class="btn btn-primary" title="新建灵感">➕ 新建</button>
+    </div>
+  </header>
+
+  <!-- 主体布局：左侧组名侧栏 + 右侧内容 -->
+  <div class="main-layout">
+    <!-- 左侧竖排组名侧栏 -->
+    <aside class="group-sidebar" id="groupSidebar">
+      <div class="sidebar-header">分组</div>
+      <ul id="groupList" class="group-list"></ul>
+      <button id="addGroupBtn" class="add-group-btn" title="新建分组">＋ 新分组</button>
+    </aside>
+
+    <!-- 右侧分组内容区 -->
+    <main class="content-area" id="contentArea">
+      <!-- 动态分组行 -->
+      <div id="groupSections" class="group-sections"></div>
+
+      <!-- 空状态引导 -->
+      <section id="emptyState" class="empty-state" hidden>
+        <div class="guide-card guide-1" data-action="create">
+          <span class="guide-icon">✨</span>
+          <p>点击「➕ 新建」记录第一个灵感</p>
+        </div>
+        <div class="guide-card guide-2" data-action="create">
+          <span class="guide-icon">💡</span>
+          <p>记录读到的好句子、冒出来的点子</p>
+        </div>
+        <div class="guide-card guide-3" data-action="import">
+          <span class="guide-icon">📥</span>
+          <p>有 JSON 数据？点顶部导入一键迁移</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 状态栏 -->
+  <footer class="statusbar">
+    <span id="statusInfo">共 0 张卡片 · 0 个分组</span>
+  </footer>
+
+  <!-- 新建/编辑 Modal -->
+  <div id="editModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <header class="modal-header">
+        <h2 id="modalTitle">新建灵感</h2>
+        <button class="modal-close" data-close>×</button>
+      </header>
+      <form id="editForm" class="modal-body">
+        <label class="field">
+          <span class="field-label">标题</span>
+          <input id="fTitle" type="text" maxlength="50" placeholder="给灵感取个名字（选填）">
+        </label>
+        <label class="field">
+          <span class="field-label">正文 <em>*</em></span>
+          <textarea id="fContent" maxlength="2000" placeholder="记下此刻的句子、灵感、想法..." rows="5"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">来源</span>
+          <input id="fSource" type="text" maxlength="200" placeholder="书名 / 文章 / 作者 / 链接（选填）">
+        </label>
+        <div class="field">
+          <span class="field-label">所属分组</span>
+          <div class="group-picker">
+            <select id="fGroup">
+              <!-- 动态生成 -->
+            </select>
+            <button type="button" id="addGroupInlineBtn" class="btn btn-ghost btn-small">＋ 新分组</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">字体</span>
+          <div id="fontGrid" class="font-grid"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">标签</span>
+          <div id="tagInputBox" class="tag-input-box">
+            <div id="tagList" class="tag-list"></div>
+            <input id="tagInput" type="text" placeholder="输入标签后回车">
+            <ul id="tagSuggest" class="tag-suggest" hidden></ul>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">卡片颜色</span>
+          <div id="presetGrid" class="preset-grid"></div>
+          <div class="custom-bg">
+            <label class="bg-type">
+              <input type="radio" name="bgType" value="gradient" checked> 渐变
+            </label>
+            <label class="bg-type">
+              <input type="radio" name="bgType" value="solid"> 纯色
+            </label>
+            <div class="color-controls">
+              <label>颜色1 <input id="bgColor1" type="color" value="#ffffff"></label>
+              <label id="color2Wrap">颜色2 <input id="bgColor2" type="color" value="#a0c4ff"></label>
+              <label id="angleWrap">角度 <input id="bgAngle" type="range" min="0" max="360" value="135"><span id="angleVal">135°</span></label>
+            </div>
+            <div id="bgPreview" class="bg-preview"></div>
+          </div>
+        </div>
+        <label class="field field-pin">
+          <input id="fPinned" type="checkbox">
+          <span>置顶到分组最前</span>
+        </label>
+        <footer class="modal-footer">
+          <button type="button" id="deleteFromModalBtn" class="btn btn-danger" style="display:none;">🗑️ 删除</button>
+          <div class="footer-right">
+            <button type="button" class="btn btn-ghost" data-close>取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- 卡片详情弹窗 -->
+  <div id="detailModal" class="modal-overlay" hidden>
+    <div class="modal detail-modal">
+      <header class="detail-header" id="detailHeader">
+        <button class="modal-close" data-close>×</button>
+      </header>
+      <div class="detail-body">
+        <h2 id="detailTitle" class="detail-title"></h2>
+        <div id="detailTags" class="detail-tags"></div>
+        <div id="detailContent" class="detail-content"></div>
+        <div class="detail-meta">
+          <p id="detailSource"></p>
+          <p id="detailTime"></p>
+        </div>
+      </div>
+      <footer class="detail-footer">
+        <button id="detailPinBtn" class="btn btn-ghost">📌 置顶</button>
+        <button id="detailCopyBtn" class="btn btn-ghost">📋 复制</button>
+        <button id="detailEditBtn" class="btn btn-primary">✏️ 编辑</button>
+        <button id="detailDeleteBtn" class="btn btn-danger">🗑️ 删除</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 二次确认弹窗 -->
+  <div id="confirmModal" class="modal-overlay" hidden>
+    <div class="modal confirm-modal">
+      <p id="confirmText"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="btn btn-ghost">取消</button>
+        <button id="confirmOk" class="btn btn-danger">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入方式选择弹窗 -->
+  <div id="importModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <header class="modal-header">
+        <h2>导入数据</h2>
+        <button class="modal-close" data-close>×</button>
+      </header>
+      <div class="modal-body">
+        <p id="importInfo"></p>
+        <div class="import-actions">
+          <button id="importMerge" class="btn btn-primary">合并</button>
+          <button id="importReplace" class="btn btn-danger">替换</button>
+          <button class="btn btn-ghost" data-close>取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建分组弹窗 -->
+  <div id="groupModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <header class="modal-header">
+        <h2 id="groupModalTitle">新建分组</h2>
+        <button class="modal-close" data-close>×</button>
+      </header>
+      <div class="modal-body">
+        <label class="field">
+          <span class="field-label">分组名称</span>
+          <input id="groupNameInput" type="text" maxlength="20" placeholder="例如：读书摘抄 / 生活随感 / 灵感碎片">
+        </label>
+        <footer class="modal-footer">
+          <button class="btn btn-ghost" data-close>取消</button>
+          <button id="groupSaveBtn" class="btn btn-primary">确定</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- 文件输入 -->
+  <input id="fileInput" type="file" accept=".json" style="display:none;">
+
+  <script src="app.js?v=3"></script>
+</body>
+</html>
